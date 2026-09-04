@@ -1,4 +1,4 @@
-# Nico Digitals Engine `v0.2.0`
+# Nico Bernaola Engine `v0.2.0`
 
 A local, open-source automation engine for short-form video content production. Built for creators and agencies who want to move fast without paying for subscriptions.
 
