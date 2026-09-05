@@ -119,6 +119,26 @@ All scripts support single files and batch processing (drag a folder).
 
 ---
 
+## Use Cases
+
+### Operational Data Extraction (Rappi / Quick Pass)
+
+While the engine was designed for short-form video, its core logic (video → word-level JSON) acts as a universal business intelligence adapter. It solves a common problem: *"I have a recorded meeting, but I need the exact technical data to execute a task immediately."*
+
+**The scenario:** A supervisor received a 40-minute training session on bulk-uploading employee shifts in Quick Pass (Rappi's HR platform). Despite attending the meeting, he couldn't resolve critical load errors. I had zero prior experience with the HR system.
+
+**How the engine solved it:**
+
+1.  `video_conference.mp4` → `transcribe.py` → `word-level JSON with timestamps`.
+2.  Parsed the JSON to extract exact verbal instructions: date formatting (apostrophe trick), mandatory "Lote" field, and time syntax.
+3.  Applied the extracted rules directly to the Google Sheets template.
+4.  The bulk upload succeeded without trial-and-error guesswork.
+
+**Pipeline output (case-specific):**
+
+
+---
+
 ## License
 
 Apache 2.0 — free to use, modify, and distribute.
