@@ -75,17 +75,6 @@ Env overrides:
 - `WHISPER_MODEL` (tiny/base/small/medium/large-v3)
 - `WHISPER_BEAM` (int)
 
-## UI (basic)
-
-A local web UI is provided to avoid running everything in the terminal.
-
-- `app.py` — FastAPI app. Endpoints: `/` (serves `ui/index.html`), `/upload`, `/run` (starts a job thread), `/logs/{job_id}` (SSE), `/status/{job_id}`, `/outputs_list/{job_id}`. Statics under `/static` and `/outputs`.
-- `ui/index.html` — Tailwind (CDN) + design system styling. Drag & drop, module checkboxes, presets, live console, download links.
-- `ui/static/globals.css` — copied from the Nico Digitals design system (dark bg, gold accents, Plus Jakarta Sans / Poppins).
-- Run: `python app.py` → http://127.0.0.1:8000
-
-The UI reuses the module functions directly (no interactive input()). `clipper.extraer_momentos_clave` accepts `export_clips_choice` to skip its prompt.
-
 ## Git state
 
 - Remote: origin = https://github.com/Nico-Bernaola/Nico-Digitals-Engine.git
