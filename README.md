@@ -6,7 +6,7 @@ A local, open-source automation engine that turns recorded meetings into structu
 
 ## What it does
 
-Turn a raw meeting video into a publish-ready knowledge package — transcription, meeting summary (intro + steps or summary + context), key moments, and captions — with a single command.
+Turn a raw meeting video into a publish-ready knowledge package — transcription, meeting summary (intro + steps or summary + context), and key moments — with a single command.
 
 ```
 python pipeline.py
@@ -21,7 +21,6 @@ python pipeline.py
 | `transcribe.py` | video / audio | word-level JSON with timestamps |
 | `splitter.py` | video | footage.mp4 + audio.mp3 |
 | `silence_cutter.py` | video | cleaned video or individual clips |
-| `captions.py` | JSON | .SRT file |
 | `meta.py` | JSON | meeting summary document (.md) |
 | `clipper.py` | JSON | key moments report + optional clips |
 | `pipeline.py` | video / folder | everything above, organized |
@@ -41,7 +40,6 @@ video_output/
 ├── video_transcript.json
 ├── video_meeting.md
 ├── key_moments.txt
-└── captions (optional)
 ```
 
 ---
@@ -94,7 +92,6 @@ Select which modules to run, choose presets, drag your video or folder.
 python transcribe.py
 python meta.py
 python clipper.py
-python captions.py
 ```
 
 All scripts support single files and batch processing (drag a folder).
