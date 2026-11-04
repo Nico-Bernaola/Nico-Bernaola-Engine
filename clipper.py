@@ -94,7 +94,8 @@ def _call_gemini(prompt: str, temperature: float = 0.3, timeout: int = 60) -> st
     return text.strip()
 
 
-def ask_gemini_chunk(words: list, chunk_index: int, total_chunks: int) -> list[dict]:
+def ask_gemini_chunk(words: list, chunk_index: int, total_chunks: int, language: str = "en") -> list[dict]:
+    lang_label = "Spanish (ASCII only, no accents, n-tilde as ni)" if language == "es" else "English"
     transcript = build_transcript(words)
     start_time = words[0]["start"]
     end_time = words[-1]["end"]
@@ -109,6 +110,8 @@ CRITERIA:
 - Minimum duration: {MIN_CLIP_DURATION} seconds
 - Maximum duration: {MAX_CLIP_DURATION} seconds
 - Use the exact timestamps from the transcript
+
+Write title and reason in {lang_label}.
 
 TRANSCRIPT:
 {transcript}
@@ -127,7 +130,8 @@ Reply ONLY with a valid JSON array, no explanations or markdown:
     return json.loads(text)
 
 
-def editor_pass(candidates: list) -> list[dict]:
+def editor_pass(candidates: list, language: str = "en") -> list[dict]:
+    lang_label = "Spanish (ASCII only, no accents, n-tilde as ni)" if language == "es" else "English"
     candidates_text = json.dumps(candidates, indent=2)
     prompt = f"""You are a meeting analyst and editor. I have {len(candidates)} key-moment candidates from a meeting.
 Rank them by importance for onboarding/training and return ONLY the top {MAX_CLIPS}.
@@ -137,6 +141,8 @@ RANKING CRITERIA:
 2. Clarity, is the moment self-contained and easy to understand?
 3. Relevance, is it central to the meeting's goal?
 4. Duration, prefer moments between {MIN_CLIP_DURATION}s and {MAX_CLIP_DURATION}s
+
+Write title and reason in {lang_label}.
 
 CANDIDATES:
 {candidates_text}
@@ -195,7 +201,17 @@ def export_clips(video_path: Path, clips: list, output_folder: Path):
         print(f"   {out_file.name}", flush=True)
 
 
-def extraer_momentos_clave(json_path: Path, video_path: Path, output_folder: Path, export_clips_choice=None):
+def normalize_output(text: str) -> str:
+    if not text:
+        return text
+    text = text.replace("Ñ", "Ni").replace("ñ", "ni")
+    import unicodedata
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = "".join(c for c in text if ord(c) < 128)
+    return text
+
+def extraer_momentos_clave(json_path: Path, video_path: Path, output_folder: Path, export_clips_choice=None, language: str = "en"):
     print(f"\nLoading: {json_path.name}", flush=True)
     words = load_words(json_path)
     total_duration = words[-1]["end"]
@@ -217,7 +233,7 @@ def extraer_momentos_clave(json_path: Path, video_path: Path, output_folder: Pat
         chunk_end = chunk[-1]["end"]
         print(f"\nAnalyzing chunk {i}/{len(chunks)} [{chunk_start:.0f}s -> {chunk_end:.0f}s]...", flush=True)
         try:
-            clips = ask_gemini_chunk(chunk, i, len(chunks))
+            clips = ask_gemini_chunk(chunk, i, len(chunks), language=language)
             all_clips.extend(clips)
             print(f"   {len(clips)} moment(s) found", flush=True)
         except Exception as e:
@@ -236,12 +252,16 @@ def extraer_momentos_clave(json_path: Path, video_path: Path, output_folder: Pat
 
     print(f"\nRunning editor pass - ranking {len(all_clips)} candidates...", flush=True)
     try:
-        top_clips = editor_pass(all_clips)
+        top_clips = editor_pass(all_clips, language=language)
         print(f"   Top {len(top_clips)} moments selected.", flush=True)
     except Exception as e:
         print(f"   Editor pass failed ({e}). Falling back to chronological order.", flush=True)
         top_clips = all_clips[:MAX_CLIPS]
 
+    if language == "es":
+        for c in top_clips:
+            c["title"] = normalize_output(c.get("title", ""))
+            c["reason"] = normalize_output(c.get("reason", ""))
     preview_clips(top_clips)
 
     export_report(top_clips, json_path, output_folder)

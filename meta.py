@@ -70,6 +70,20 @@ def build_llm_transcript(words: list) -> str:
     return NL.join(lines)
 
 
+def normalize_output(text: str) -> str:
+    """Spanish output: no accents, Ñ/ñ -> Ni/ni, ASCII only."""
+    if not text:
+        return text
+    # Ñ/ñ -> Ni/ni first
+    text = text.replace("Ñ", "Ni").replace("ñ", "ni")
+    # strip accents
+    import unicodedata
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    # keep only printable ASCII
+    text = "".join(c for c in text if ord(c) < 128)
+    return text
+
 def _call_gemini(prompt: str, temperature: float = 0.3, timeout: int = 120) -> str:
     body = json.dumps({"contents": [{"parts": [{"text": prompt}]}],
                        "generationConfig": {"temperature": temperature}}).encode("utf-8")
@@ -87,16 +101,24 @@ def _parse_json(text: str) -> dict:
     return json.loads(text.strip())
 
 
-def generar_informe(json_path: Path, output_folder: Path) -> Path:
+def generar_informe(json_path: Path, output_folder: Path, language: str = "en") -> Path:
     words = load_words(json_path)
     transcript = build_transcript(words)
 
+    if language == "es":
+        lang_label = "Spanish"
+        lang_extra = "Use only ASCII characters: no accents (a,e,i,o,u) and replace any n-tilde with \"Ni\" (or \"ni\")."
+    else:
+        lang_label = "English"
+        lang_extra = "Use standard English."
     prompt = f"""You are an expert meeting analyst and technical writer.
 
 I am giving you the full transcript of a recorded meeting (with timestamps). Produce a structured onboarding/training document a new employee can follow.
 
 TRANSCRIPT:
 {transcript}
+
+LANGUAGE INSTRUCTION: Write ALL text fields in {lang_label}. {lang_extra}
 
 Return ONLY a valid JSON object, no markdown, no explanations:
 {{
@@ -119,9 +141,17 @@ Rules:
     data = _parse_json(raw)
 
     intro = (data.get("intro") or "").strip()
+    if language == "es":
+        intro = normalize_output(intro)
     steps = data.get("steps")
+    if language == "es" and steps:
+        steps = [normalize_output(x) for x in steps]
     summary = (data.get("summary") or "").strip() if data.get("summary") else ""
+    if language == "es" and summary:
+        summary = normalize_output(summary)
     context = (data.get("context") or "").strip() if data.get("context") else ""
+    if language == "es" and context:
+        context = normalize_output(context)
 
     if steps:
         summary = ""

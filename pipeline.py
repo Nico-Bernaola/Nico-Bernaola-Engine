@@ -94,6 +94,11 @@ while True:
         ).ask()
         clip_sequence = cut_mode == "Clip sequence"
 
+
+    # ── Output language ────────────────────────────────────────────────────
+    lang_choice = input(chr(10) + "Output language? [1] English  [2] Spanish (no accents): ").strip()
+    language = "es" if lang_choice == "2" else "en"
+
     # ── Input: video or folder ─────────────────────────────────────────────
     video_input = input("\nDrag a video or folder here, or type 'exit': ").strip()
 
@@ -152,14 +157,14 @@ while True:
             elif key == "infer":
                 section("INFER — Meeting summary + LLM-ready transcript")
                 if json_path:
-                    generar_informe(json_path, output_folder)
+                    generar_informe(json_path, output_folder, language=language)
                 else:
                     print("\nNo JSON available for inference.", flush=True)
 
             elif key == "clips":
                 section("KEY MOMENTS — Extracting important moments")
                 if json_path:
-                    extraer_momentos_clave(json_path, video_path, output_folder)
+                    extraer_momentos_clave(json_path, video_path, output_folder, language=language)
                 else:
                     print("\nNo JSON available for key moments.", flush=True)
 
