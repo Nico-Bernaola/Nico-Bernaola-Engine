@@ -1,0 +1,179 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600&display=swap');
+
+/* ─── Brand Tokens ─────────────────────────────────────────── */
+:root {
+  --bg-dark:        #1b1b1b;
+  --bg-light:       #f6f0eb;
+  --gold:           #bfa159;
+  --gold-light:     #d4b87a;
+  --gold-dim:       #bfa15940;
+  --text-light:     #b2b2b2;
+  --text-dark:      #1b1b1b;
+  --text-white:     #f0ece6;
+
+  --font-heading:   'Plus Jakarta Sans', sans-serif;
+  --font-body:      'Poppins', sans-serif;
+}
+
+/* ─── Base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-light);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Typography Scale ──────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  color: var(--text-white);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: clamp(2.4rem, 6vw, 4.5rem); font-weight: 800; }
+h2 { font-size: clamp(1.8rem, 4vw, 3rem);   font-weight: 700; }
+h3 { font-size: clamp(1.2rem, 2.5vw, 1.6rem); font-weight: 600; }
+h4 { font-size: 1.1rem; font-weight: 600; }
+
+p  { font-size: 1rem; color: var(--text-light); }
+
+/* ─── Gold Accent ───────────────────────────────────────────── */
+.text-gold   { color: var(--gold); }
+.border-gold { border-color: var(--gold); }
+
+/* ─── Section rhythm ────────────────────────────────────────── */
+.section      { padding: 6rem 0; }
+.section-sm   { padding: 4rem 0; }
+.container    { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
+.container-sm { max-width: 720px;  margin: 0 auto; padding: 0 1.5rem; }
+
+/* ─── Divider ───────────────────────────────────────────────── */
+.gold-line {
+  width: 48px;
+  height: 2px;
+  background: var(--gold);
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--gold);
+  color: var(--bg-dark);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.875rem 2rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  background: var(--gold-light);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.875rem 2rem;
+  border: 1px solid var(--gold);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+  text-decoration: none;
+}
+.btn-outline:hover {
+  background: var(--gold-dim);
+  transform: translateY(-1px);
+}
+
+/* ─── Cards ─────────────────────────────────────────────────── */
+.card-dark {
+  background: #232323;
+  border: 1px solid #2e2e2e;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.card-dark:hover {
+  border-color: var(--gold);
+  transform: translateY(-3px);
+}
+
+/* ─── Light sections ────────────────────────────────────────── */
+.bg-light-section {
+  background-color: var(--bg-light);
+}
+.bg-light-section h1,
+.bg-light-section h2,
+.bg-light-section h3,
+.bg-light-section h4 {
+  color: var(--text-dark);
+}
+.bg-light-section p {
+  color: #555;
+}
+
+/* ─── Blog prose ────────────────────────────────────────────── */
+.prose h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; color: var(--text-white); }
+.prose h3 { font-size: 1.2rem; margin: 2rem 0 0.75rem; color: var(--text-white); }
+.prose p  { margin-bottom: 1.4rem; font-size: 1rem; line-height: 1.8; }
+.prose a  { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.prose ul, .prose ol { padding-left: 1.5rem; margin-bottom: 1.4rem; }
+.prose li { margin-bottom: 0.4rem; }
+.prose blockquote {
+  border-left: 3px solid var(--gold);
+  padding-left: 1.25rem;
+  margin: 2rem 0;
+  color: #888;
+  font-style: italic;
+}
+.prose code {
+  background: #2a2a2a;
+  color: var(--gold);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-size: 0.875em;
+}
+.prose pre {
+  background: #222;
+  border: 1px solid #2e2e2e;
+  padding: 1.5rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 1.4rem;
+}
+.prose pre code { background: none; padding: 0; color: #e0d5c5; }
+.prose hr { border: none; border-top: 1px solid #2e2e2e; margin: 2.5rem 0; }
+.prose strong { color: var(--text-white); font-weight: 600; }
+
+/* ─── Animations ────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.6s ease forwards; }
+.fade-up-1 { animation-delay: 0.1s; opacity: 0; }
+.fade-up-2 { animation-delay: 0.25s; opacity: 0; }
+.fade-up-3 { animation-delay: 0.4s; opacity: 0; }
+.fade-up-4 { animation-delay: 0.55s; opacity: 0; }

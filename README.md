@@ -1,12 +1,12 @@
 # Nico Bernaola Engine `v0.2.0`
 
-A local, open-source automation engine for short-form video content production. Built for creators and agencies who want to move fast without paying for subscriptions.
+A local, open-source automation engine that turns recorded meetings into structured onboarding/training documents. Built for teams who want to capture what was said, extract the steps, and onboard new employees without re-watching 40-minute videos.
 
 ---
 
 ## What it does
 
-Turn a raw video into a publish-ready content package — transcription, silence removal, captions, and platform copy — with a single command.
+Turn a raw meeting video into a publish-ready knowledge package — transcription, meeting summary (intro + steps or summary + context), key moments, and captions — with a single command.
 
 ```
 python pipeline.py
@@ -22,7 +22,8 @@ python pipeline.py
 | `splitter.py` | video | footage.mp4 + audio.mp3 |
 | `silence_cutter.py` | video | cleaned video or individual clips |
 | `captions.py` | JSON | .SRT file |
-| `meta.py` | JSON | platform copy (.txt) |
+| `meta.py` | JSON | meeting summary document (.md) |
+| `clipper.py` | JSON | key moments report + optional clips |
 | `pipeline.py` | video / folder | everything above, organized |
 
 All modules work standalone or together through the pipeline. The JSON transcript is the shared data format between them.
@@ -38,12 +39,9 @@ video_output/
 │   ├── video_audio.mp3
 │   └── README.txt
 ├── video_transcript.json
-├── video_Hormozi.srt
-└── meta/
-    ├── instagram.txt
-    ├── tiktok.txt
-    ├── youtube_shorts.txt
-    └── linkedin.txt
+├── video_meeting.md
+├── key_moments.txt
+└── captions (optional)
 ```
 
 ---
@@ -51,8 +49,8 @@ video_output/
 ## Stack
 
 - **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** — local transcription, no API needed
-- **[auto-editor](https://github.com/WyattBlue/auto-editor)** — silence detection and removal
-- **[Gemini 2.5 Flash](https://ai.google.dev/)** — copy generation (free tier)
+- **[auto-editor](https://github.com/WyattBlue/auto-editor)** — silence detection and removal (optional)
+- **[Gemini 2.5 Flash](https://ai.google.dev/)** — meeting inference and key-moment extraction (free tier)
 - **[questionary](https://github.com/tmbo/questionary)** — interactive CLI
 - **ffmpeg** — audio/video processing
 
@@ -94,28 +92,25 @@ Select which modules to run, choose presets, drag your video or folder.
 **Individual modules:**
 ```bash
 python transcribe.py
-python silence_cutter.py
-python captions.py
 python meta.py
-python splitter.py
+python clipper.py
+python captions.py
 ```
 
 All scripts support single files and batch processing (drag a folder).
 
 ---
 
-## Presets
+## Performance notes
 
-**Silence Cut**
-- `Podcast` — preserves natural pauses
-- `Talking-Head` — standard cut for front-facing camera
-- `Short-form` — aggressive cut for Reels / TikTok
+Transcription is the bottleneck. For long meetings the engine now:
+- auto-detects CUDA and uses float16 when available, otherwise CPU int8
+- extracts a 16kHz mono WAV before transcribing (faster decode)
+- enables VAD filtering to skip silences
+- lowers beam size (configurable via `WHISPER_BEAM`, default 2)
+- disables conditioning on previous text
 
-**Captions**
-- `MrBeast` — 1 word per caption
-- `Hormozi` — 3 words per caption
-- `Podcast` — 5 words per caption
-- `Custom` — you choose
+Model size is configurable via `WHISPER_MODEL` (tiny/base/small/medium/large-v3). Default `small`.
 
 ---
 
@@ -123,19 +118,16 @@ All scripts support single files and batch processing (drag a folder).
 
 ### Operational Data Extraction (Rappi / Quick Pass)
 
-While the engine was designed for short-form video, its core logic (video → word-level JSON) acts as a universal business intelligence adapter. It solves a common problem: *"I have a recorded meeting, but I need the exact technical data to execute a task immediately."*
+While the engine was designed for short-form video, its core logic (video -> word-level JSON) acts as a universal business intelligence adapter. It solves a common problem: "I have a recorded meeting, but I need the exact technical data to execute a task immediately."
 
 **The scenario:** A supervisor received a 40-minute training session on bulk-uploading employee shifts in Quick Pass (Rappi's HR platform). Despite attending the meeting, he couldn't resolve critical load errors. I had zero prior experience with the HR system.
 
 **How the engine solved it:**
 
-1.  `video_conference.mp4` → `transcribe.py` → `word-level JSON with timestamps`.
+1.  `video_conference.mp4` -> `transcribe.py` -> `word-level JSON with timestamps`.
 2.  Parsed the JSON to extract exact verbal instructions: date formatting (apostrophe trick), mandatory "Lote" field, and time syntax.
 3.  Applied the extracted rules directly to the Google Sheets template.
 4.  The bulk upload succeeded without trial-and-error guesswork.
-
-**Pipeline output (case-specific):**
-
 
 ---
 

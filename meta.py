@@ -1,3 +1,9 @@
+import sys
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 from pathlib import Path
 from dotenv import load_dotenv
 import json
@@ -5,53 +11,13 @@ import urllib.request
 import urllib.error
 import os
 
-# =========================
-# CONFIG
-# =========================
-
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_URL     = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY
-)
+GEMINI_URL = ("https://generativelanguage.googleapis.com/v1beta/models/"
+              "gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY)
 
 FORMATS = {".json"}
 
-PLATAFORMAS = {
-    "instagram": {
-        "name":     "Instagram",
-        "tone":     "close, aspirational, moderate emoji use",
-        "caption":  "150-300 characters",
-        "hashtags": "10-15 mixed hashtags (niche + broad)",
-        "cta":      "save this video, follow us, comment your opinion",
-    },
-    "tiktok": {
-        "name":     "TikTok",
-        "tone":     "direct, energetic, colloquial, strong hook",
-        "caption":  "100-150 characters",
-        "hashtags": "5-8 trending and niche hashtags",
-        "cta":      "follow for more, comment if this happened to you, duet this",
-    },
-    "youtube_shorts": {
-        "name":     "YouTube Shorts",
-        "tone":     "informative but dynamic, honest clickbait title",
-        "caption":  "100-200 characters",
-        "hashtags": "3-5 relevant hashtags",
-        "cta":      "subscribe, watch the full video, leave a like",
-    },
-    "linkedin": {
-        "name":     "LinkedIn",
-        "tone":     "professional, reflective, adds value, minimal emojis",
-        "caption":  "200-400 characters with line breaks for readability",
-        "hashtags": "3-5 professional hashtags",
-        "cta":      "what do you think?, share if this added value, follow me",
-    },
-}
-
-# =========================
-# FUNCTIONS
-# =========================
 
 def clean_path(raw: str) -> Path:
     raw = raw.strip().replace('"', "").replace("'", "")
@@ -61,7 +27,6 @@ def clean_path(raw: str) -> Path:
 
 
 def resolve_files(path: Path) -> list[Path]:
-    """Returns all JSON files in a folder, or a single file."""
     if path.is_dir():
         return sorted([f for f in path.iterdir() if f.suffix.lower() in FORMATS])
     elif path.suffix.lower() in FORMATS:
@@ -69,149 +34,143 @@ def resolve_files(path: Path) -> list[Path]:
     return []
 
 
-def load_transcript(json_path: Path) -> str:
+def load_words(json_path: Path) -> list:
     with open(json_path, "r", encoding="utf-8") as f:
-        words = json.load(f)
-    return " ".join(w["word"] for w in words).strip()
+        return json.load(f)
 
 
-def generate_copy(transcript: str, platform: dict) -> str:
-    prompt = f"""You are an expert in digital marketing and social media copywriting.
+def build_transcript(words: list) -> str:
+    lines = []
+    for i, w in enumerate(words):
+        if i % 120 == 0:
+            lines.append(f"\n[{w['start']:.1f}s]")
+        lines.append(w["word"])
+    return " ".join(lines)
 
-I'm giving you a video transcript and your task is to generate the full copy for {platform['name']}.
+
+def _call_gemini(prompt: str, temperature: float = 0.3, timeout: int = 120) -> str:
+    body = json.dumps({"contents": [{"parts": [{"text": prompt}]}],
+                       "generationConfig": {"temperature": temperature}}).encode("utf-8")
+    req = urllib.request.Request(GEMINI_URL, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+
+def _parse_json(text: str) -> dict:
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return json.loads(text.strip())
+
+
+def generar_informe(json_path: Path, output_folder: Path) -> Path:
+    words = load_words(json_path)
+    transcript = build_transcript(words)
+
+    prompt = f"""You are an expert meeting analyst and technical writer.
+
+I am giving you the full transcript of a recorded meeting (with timestamps). Produce a structured onboarding/training document a new employee can follow.
 
 TRANSCRIPT:
 {transcript}
 
-INSTRUCTIONS FOR {platform['name'].upper()}:
-- Tone: {platform['tone']}
-- Caption length: {platform['caption']}
-- Hashtags: {platform['hashtags']}
-- Suggested CTA: {platform['cta']}
+Return ONLY a valid JSON object, no markdown, no explanations:
+{{
+  "intro": "A paragraph introducing what the meeting was about and its main goal.",
+  "steps": ["step 1", "step 2", "..."] or null,
+  "summary": "A paragraph summarizing the discussion" or null,
+  "context": "A paragraph giving context of everything that needs to be done" or null
+}}
 
-Reply ONLY with the following format, no explanations or markdown:
-
-TITLE:
-[platform-optimized title]
-
-HOOK:
-[first line that stops the scroll]
-
-CAPTION:
-[full caption ready to copy and paste]
-
-HASHTAGS:
-[hashtags ready to copy and paste]
-
-CTA:
-[call to action]
+Rules:
+- "intro" is ALWAYS present (non-empty paragraph).
+- If the meeting discussed a concrete procedure/process to execute, set "steps" to an ordered array of clear, actionable steps and set "summary" to null. Also set "context" to a paragraph summarizing overall context and action items.
+- If the meeting was informational (no concrete procedure to execute), set "steps" to null, "summary" to a paragraph summarizing the talk, and "context" to null.
+- Never set both "steps" and "summary" to non-null. Never set "context" when "summary" is set.
+- Keep steps concise but complete. Use the same language as the transcript.
 """
 
-    body = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.7}
-    }).encode("utf-8")
+    print(f"\nAnalyzing meeting: {json_path.name}...", flush=True)
+    raw = _call_gemini(prompt, temperature=0.3, timeout=180)
+    data = _parse_json(raw)
 
-    req = urllib.request.Request(
-        GEMINI_URL, data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
+    intro = (data.get("intro") or "").strip()
+    steps = data.get("steps")
+    summary = (data.get("summary") or "").strip() if data.get("summary") else ""
+    context = (data.get("context") or "").strip() if data.get("context") else ""
 
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
+    if steps:
+        summary = ""
+    else:
+        context = ""
 
-    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    output_folder.mkdir(parents=True, exist_ok=True)
+    dest = output_folder / f"{json_path.stem}_meeting.md"
 
+    lines = []
+    lines.append(f"# Meeting Summary - {json_path.stem}")
+    lines.append("")
+    lines.append(f"- Source transcript: `{json_path.name}`")
+    lines.append(f"- Words: {len(words)}")
+    lines.append(f"- Duration: {words[-1]['end']:.1f}s" if words else "")
+    lines.append("")
+    lines.append("## Introduction")
+    lines.append("")
+    lines.append(intro)
+    lines.append("")
 
-def generar_meta(json_path: Path, platform_keys: list, output_folder: Path) -> bool:
-    """
-    Generates copy for the given platforms from json_path.
-    Saves .txt files in output_folder/meta/.
-    Returns True if no errors occurred.
-    """
-    transcript  = load_transcript(json_path)
-    meta_folder = output_folder / "meta"
-    meta_folder.mkdir(parents=True, exist_ok=True)
-    errors = []
+    if steps:
+        lines.append("## Steps")
+        lines.append("")
+        for i, step in enumerate(steps, start=1):
+            lines.append(f"{i}. {step}")
+        lines.append("")
+        if context:
+            lines.append("## Context")
+            lines.append("")
+            lines.append(context)
+            lines.append("")
+    else:
+        lines.append("## Summary")
+        lines.append("")
+        lines.append(summary)
+        lines.append("")
 
-    for key in platform_keys:
-        platform = PLATAFORMAS[key]
-        print(f"\n🤖 Generating copy for {platform['name']}...", flush=True)
-        try:
-            copy = generate_copy(transcript, platform)
-            out  = meta_folder / f"{key}.txt"
-            out.write_text(copy, encoding="utf-8")
-            print(f"   ✅ {out.name}", flush=True)
-        except urllib.error.HTTPError as e:
-            print(f"   ❌ API error ({e.code}): {e.reason}", flush=True)
-            errors.append(platform["name"])
-        except Exception as e:
-            print(f"   ❌ Error: {e}", flush=True)
-            errors.append(platform["name"])
+    dest.write_text("\n".join(lines), encoding="utf-8")
+    print(f"   {dest.name}", flush=True)
+    return dest
 
-    generated = len(platform_keys) - len(errors)
-    print(f"\n✅ {generated}/{len(platform_keys)} copies generated.", flush=True)
-    if errors:
-        print(f"⚠️  Failed: {', '.join(errors)}", flush=True)
-    return len(errors) == 0
-
-
-# =========================
-# MAIN LOOP
-# =========================
 
 if __name__ == "__main__":
-
-    import questionary
-
     while True:
-
         print("\n==============================", flush=True)
-        print(" Meta Generator",               flush=True)
+        print(" Meeting Inference - Meta", flush=True)
         print("==============================", flush=True)
-
-        # Platform selection
-        selection = questionary.checkbox(
-            "Generate copy for which platforms?",
-            choices=[p["name"] for p in PLATAFORMAS.values()]
-        ).ask()
-
-        if not selection:
-            print("\n⚠️  No platforms selected.", flush=True)
+        raw_input = input("\nDrag a transcript JSON here, or type 'exit': ").strip()
+        if raw_input.lower() == "exit":
+            print("\nClosing...")
+            break
+        path = clean_path(raw_input)
+        if not path.exists():
+            print(f"\nNot found: {path}", flush=True)
             continue
-
-        platform_keys = [k for k, v in PLATAFORMAS.items() if v["name"] in selection]
-
-        # Input
-        raw_input  = input("\nDrag a JSON file or folder here: ").strip()
-
-        input_path = clean_path(raw_input)
-
-        if not input_path.exists():
-            print(f"\n❌ Not found: {input_path}", flush=True)
-            continue
-
-        files = resolve_files(input_path)
-
+        files = resolve_files(path)
         if not files:
-            print("\n❌ No compatible JSON files found.", flush=True)
+            print("\nNo compatible JSON files found.", flush=True)
             continue
-
-        if input_path.is_dir():
-            print(f"\n📁 Folder detected — {len(files)} file(s) to process.", flush=True)
-
+        if path.is_dir():
+            print(f"\nFolder detected - {len(files)} file(s) to process.", flush=True)
         for i, json_path in enumerate(files, start=1):
             if len(files) > 1:
                 print(f"\n[{i}/{len(files)}]", flush=True)
-            print(f"\n📄 Loading: {json_path.name}", flush=True)
-            output_folder = json_path.parent / f"{json_path.stem}_meta"
-            generar_meta(json_path, platform_keys, output_folder)
-            print(f"📁 {output_folder / 'meta'}", flush=True)
-
-        print(f"\n✅ Done. {len(files)} file(s) processed.", flush=True)
-
+            print(f"\nLoading: {json_path.name}", flush=True)
+            output_folder = json_path.parent / f"{json_path.stem}_meeting"
+            generar_informe(json_path, output_folder)
+            print(f"Folder: {output_folder}", flush=True)
+        print(f"\nDone. {len(files)} file(s) processed.", flush=True)
         again = input("\nProcess another file? (Enter to continue / 'exit' to quit): ").strip().lower()
         if again == "exit":
-            print("\n👋 Closing...")
+            print("\nClosing...")
             break

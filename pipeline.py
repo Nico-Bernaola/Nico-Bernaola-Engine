@@ -1,3 +1,9 @@
+import sys
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 from version import VERSION
 from pathlib import Path
 import questionary
@@ -7,18 +13,19 @@ from splitter       import split
 from transcribe     import transcribir, cargar_modelo, FORMATS
 from silence_cutter import procesar as cut, PRESETS as PRESETS_SILENCE
 from captions       import generar_captions, PRESETS as PRESETS_CAPTIONS
-from meta           import generar_meta, PLATAFORMAS
+from meta           import generar_informe
+from clipper        import extraer_momentos_clave
 
 # =========================
 # CONFIG
 # =========================
 
 STEPS = [
-    {"key": "split",      "label": "Split        — separate audio and video"},
-    {"key": "transcribe", "label": "Transcribe   — generate JSON with Whisper"},
-    {"key": "cut",        "label": "Silence Cut  — remove silences"},
-    {"key": "captions",   "label": "Captions     — generate .SRT"},
-    {"key": "meta",       "label": "Meta         — generate copy per platform"},
+    {"key": "split",      "label": "Split          — separate audio and video (optional)"},
+    {"key": "transcribe", "label": "Transcribe     — generate word-level JSON with Whisper"},
+    {"key": "infer",      "label": "Infer         — meeting summary (intro + steps/summary + context)"},
+    {"key": "clips",      "label": "Key Moments    — extract important moments (optional)"},
+    {"key": "captions",   "label": "Captions       — generate .SRT (optional)"},
 ]
 
 # =========================
@@ -47,8 +54,8 @@ whisper_model = None  # lazy loading — reused across batch files
 while True:
 
     print("\n══════════════════════════════════════", flush=True)
-    print(f"  Nico Digitals Engine | v{VERSION}",   flush=True)
-    print(  "  Pipeline — Beta",                     flush=True)
+    print(f"  Nico Bernaola Engine | v{VERSION}",   flush=True)
+    print(  "  Meeting Inference Pipeline",           flush=True)
     print(  "══════════════════════════════════════", flush=True)
     print(  "  ℹ️  For help, read the README.md\n",  flush=True)
 
@@ -65,7 +72,7 @@ while True:
     active_keys = [s["key"] for s in STEPS if s["label"] in active]
 
     # ── Auto-resolve dependencies ──────────────────────────────────────────
-    for dep in ["captions", "meta"]:
+    for dep in ["infer", "clips", "captions"]:
         if dep in active_keys and "transcribe" not in active_keys:
             print(f"\n⚠️  '{dep}' requires Transcribe. Enabling it automatically.", flush=True)
             active_keys.insert(active_keys.index(dep), "transcribe")
@@ -74,7 +81,6 @@ while True:
     preset_silence  = None
     clip_sequence   = False
     preset_captions = None
-    meta_platforms  = []
 
     if "cut" in active_keys:
         print("\n  Silence Cut presets:")
@@ -102,36 +108,29 @@ while True:
             except ValueError:
                 preset_captions = PRESETS_CAPTIONS["2"]
 
-    if "meta" in active_keys:
-        selection = questionary.checkbox(
-            "Generate copy for which platforms?",
-            choices=[p["name"] for p in PLATAFORMAS.values()]
-        ).ask() or []
-        meta_platforms = [k for k, v in PLATAFORMAS.items() if v["name"] in selection]
-
     # ── Input: video or folder ─────────────────────────────────────────────
     video_input = input("\nDrag a video or folder here, or type 'exit': ").strip()
 
     if video_input.lower() == "exit":
-        print("\n👋 Closing...")
+        print("\nClosing...")
         break
 
     input_path = clean_path(video_input)
 
     if not input_path.exists():
-        print(f"\n❌ Not found: {input_path}", flush=True)
+        print(f"\nNot found: {input_path}", flush=True)
         continue
 
     if input_path.is_dir():
         files = sorted([f for f in input_path.iterdir() if f.suffix.lower() in FORMATS])
         if not files:
-            print("\n❌ No compatible video files found in folder.", flush=True)
+            print("\nNo compatible video files found in folder.", flush=True)
             continue
-        print(f"\n📁 Folder detected — {len(files)} file(s) to process.", flush=True)
+        print(f"\nFolder detected — {len(files)} file(s) to process.", flush=True)
     elif input_path.suffix.lower() in FORMATS:
         files = [input_path]
     else:
-        print("\n❌ Unsupported format.", flush=True)
+        print("\nUnsupported format.", flush=True)
         continue
 
     # ── Process each file ──────────────────────────────────────────────────
@@ -144,7 +143,7 @@ while True:
 
         output_folder = video_path.parent / f"{video_path.stem}_output"
         output_folder.mkdir(exist_ok=True)
-        print(f"\n📁 Output: {output_folder}", flush=True)
+        print(f"\nOutput: {output_folder}", flush=True)
 
         json_path = None
 
@@ -161,8 +160,22 @@ while True:
                 dest      = output_folder / f"{video_path.stem}_transcript.json"
                 json_path = transcribir(video_path, whisper_model, output_path=dest)
                 if not json_path:
-                    print("\n❌ Transcription failed. Skipping file.", flush=True)
+                    print("\nTranscription failed. Skipping file.", flush=True)
                     break
+
+            elif key == "infer":
+                section("INFER — Meeting summary")
+                if json_path:
+                    generar_informe(json_path, output_folder)
+                else:
+                    print("\nNo JSON available for inference.", flush=True)
+
+            elif key == "clips":
+                section("KEY MOMENTS — Extracting important moments")
+                if json_path:
+                    extraer_momentos_clave(json_path, video_path, output_folder)
+                else:
+                    print("\nNo JSON available for key moments.", flush=True)
 
             elif key == "cut":
                 section(f"SILENCE CUT — Preset: {preset_silence['name']}")
@@ -174,23 +187,16 @@ while True:
                     dest = output_folder / f"{video_path.stem}_{preset_captions['name']}.srt"
                     generar_captions(json_path, preset_captions, output_path=dest)
                 else:
-                    print("\n⚠️  No JSON available for captions.", flush=True)
+                    print("\nNo JSON available for captions.", flush=True)
 
-            elif key == "meta":
-                section("META — Generating marketing copy")
-                if json_path and meta_platforms:
-                    generar_meta(json_path, meta_platforms, output_folder)
-                else:
-                    print("\n⚠️  No JSON or platforms available for meta.", flush=True)
-
-        print(f"\n  ✅ Done: {video_path.name}", flush=True)
-        print(f"  📁 {output_folder}",          flush=True)
+        print(f"\n  Done: {video_path.name}", flush=True)
+        print(f"  {output_folder}",          flush=True)
 
     print(f"\n{'═'*38}",                                        flush=True)
-    print(f"  ✅ Pipeline complete. {len(files)} file(s).",     flush=True)
+    print(f"  Pipeline complete. {len(files)} file(s).",     flush=True)
     print(f"{'═'*38}",                                         flush=True)
 
     again = input("\nProcess another batch? (Enter to continue / 'exit' to quit): ").strip().lower()
     if again == "exit":
-        print("\n👋 Closing...")
+        print("\nClosing...")
         break

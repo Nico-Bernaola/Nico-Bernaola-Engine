@@ -223,3 +223,9 @@ __marimo__/
 *_meta/
 *_transcript.json
 blaze_face_short_range.tflite
+# UI runtime artifacts
+uploads/
+ui_outputs/
+
+# Local test artifacts
+videoplayback.*
