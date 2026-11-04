@@ -222,6 +222,17 @@ def outputs_list(job_id: str):
     return {"files": result}
 
 
+@app.post("/shutdown")
+def shutdown():
+    """Stops the server. The user decides when it runs and when it stops."""
+    def _exit():
+        import time
+        time.sleep(0.5)
+        os._exit(0)
+    threading.Thread(target=_exit, daemon=True).start()
+    return {"ok": True}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))

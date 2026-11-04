@@ -23,6 +23,13 @@
         },
       },
     }
+
+    document.getElementById('stopBtn').addEventListener('click', async () => {
+      if (!confirm('Apagar el servidor?')) return;
+      try { await fetch('/shutdown', { method: 'POST' }); } catch (e) {}
+      document.getElementById('status').textContent = 'Servidor apagado. Cerra esta pestana.';
+      alert('Servidor apagado. Podes cerrar esta pestana.');
+    });
   </script>
   <style>
     body { font-family: 'Poppins', sans-serif; }
@@ -101,6 +108,7 @@
     <section class="card-dark rounded-lg p-6 mb-6">
       <div class="flex items-center gap-4">
         <button id="runBtn" class="btn-primary">Run pipeline</button>
+        <button id="stopBtn" class="btn-outline">Apagar servidor</button>
         <span id="status" class="text-sm"></span>
       </div>
     </section>
