@@ -1,9 +1,10 @@
 import sys
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 except Exception:
     pass
+
 from version import VERSION
 from pathlib import Path
 import questionary
@@ -12,7 +13,6 @@ import questionary
 from splitter       import split
 from transcribe     import transcribir, cargar_modelo, FORMATS
 from silence_cutter import procesar as cut, PRESETS as PRESETS_SILENCE
-from captions       import generar_captions, PRESETS as PRESETS_CAPTIONS
 from meta           import generar_informe
 from clipper        import extraer_momentos_clave
 
@@ -23,9 +23,9 @@ from clipper        import extraer_momentos_clave
 STEPS = [
     {"key": "split",      "label": "Split          — separate audio and video (optional)"},
     {"key": "transcribe", "label": "Transcribe     — generate word-level JSON with Whisper"},
-    {"key": "infer",      "label": "Infer         — meeting summary (intro + steps/summary + context)"},
+    {"key": "infer",      "label": "Infer         — meeting summary + LLM-ready transcript"},
     {"key": "clips",      "label": "Key Moments    — extract important moments (optional)"},
-    {"key": "captions",   "label": "Captions       — generate .SRT (optional)"},
+    {"key": "cut",        "label": "Silence Cut    — remove silences (optional, legacy)"},
 ]
 
 # =========================
@@ -72,7 +72,7 @@ while True:
     active_keys = [s["key"] for s in STEPS if s["label"] in active]
 
     # ── Auto-resolve dependencies ──────────────────────────────────────────
-    for dep in ["infer", "clips", "captions"]:
+    for dep in ["infer", "clips"]:
         if dep in active_keys and "transcribe" not in active_keys:
             print(f"\n⚠️  '{dep}' requires Transcribe. Enabling it automatically.", flush=True)
             active_keys.insert(active_keys.index(dep), "transcribe")
@@ -80,7 +80,6 @@ while True:
     # ── Configure optional modules ─────────────────────────────────────────
     preset_silence  = None
     clip_sequence   = False
-    preset_captions = None
 
     if "cut" in active_keys:
         print("\n  Silence Cut presets:")
@@ -94,19 +93,6 @@ while True:
             choices=["Single file", "Clip sequence"]
         ).ask()
         clip_sequence = cut_mode == "Clip sequence"
-
-    if "captions" in active_keys:
-        print("\n  Captions presets:")
-        for k, v in PRESETS_CAPTIONS.items():
-            print(f"  [{k}] {v['name']} — {v['description']}")
-        op = input("  Choose preset (1/2/3/4): ").strip()
-        preset_captions = PRESETS_CAPTIONS.get(op, PRESETS_CAPTIONS["2"])
-        if preset_captions["words"] is None:
-            try:
-                n = int(input("  How many words per caption? ").strip())
-                preset_captions = {**preset_captions, "words": max(1, n)}
-            except ValueError:
-                preset_captions = PRESETS_CAPTIONS["2"]
 
     # ── Input: video or folder ─────────────────────────────────────────────
     video_input = input("\nDrag a video or folder here, or type 'exit': ").strip()
@@ -164,7 +150,7 @@ while True:
                     break
 
             elif key == "infer":
-                section("INFER — Meeting summary")
+                section("INFER — Meeting summary + LLM-ready transcript")
                 if json_path:
                     generar_informe(json_path, output_folder)
                 else:
@@ -180,14 +166,6 @@ while True:
             elif key == "cut":
                 section(f"SILENCE CUT — Preset: {preset_silence['name']}")
                 cut(video_path, preset_silence, clip_sequence, output_folder=output_folder)
-
-            elif key == "captions":
-                section(f"CAPTIONS — Preset: {preset_captions['name']}")
-                if json_path:
-                    dest = output_folder / f"{video_path.stem}_{preset_captions['name']}.srt"
-                    generar_captions(json_path, preset_captions, output_path=dest)
-                else:
-                    print("\nNo JSON available for captions.", flush=True)
 
         print(f"\n  Done: {video_path.name}", flush=True)
         print(f"  {output_folder}",          flush=True)

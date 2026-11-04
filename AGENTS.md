@@ -16,9 +16,8 @@ The pivot is on branch `dev`. `main` still reflects the old focus plus two remot
 ## Modules and responsibilities
 
 - `transcribe.py` — core. Whisper (faster-whisper) -> word-level JSON. Performance-optimized (see below).
-- `meta.py` — meeting inference. Reads word JSON, calls Gemini, produces a Markdown doc with: Introduction (always), then either Steps (actionable procedure) OR Summary (informational talk), and a Context paragraph only when Steps were produced. Function: `generar_informe(json_path, output_folder)`.
+- `meta.py` — meeting inference. Reads word JSON, calls Gemini, produces a Markdown doc with: Introduction (always), then either Steps (actionable procedure) OR Summary (informational talk), and a Context paragraph only when Steps were produced. Also emits a timestamped `_transcript_llm.txt` for LLM consumption. Function: `generar_informe(json_path, output_folder)`.
 - `clipper.py` — key moments extraction. Chunks transcript, asks Gemini for key moments per chunk, editor pass ranks, writes `key_moments.txt`, optionally exports video clips. Pipeline entry: `extraer_momentos_clave(json_path, video_path, output_folder)`.
-- `captions.py` — SRT generation (optional, for training videos).
 - `splitter.py` — splits audio/video (optional, speeds up transcription).
 - `silence_cutter.py` — optional silence removal (legacy, kept but not central).
 - `pipeline.py` — orchestrator with module selection via questionary.
@@ -29,7 +28,7 @@ The pivot is on branch `dev`. `main` still reflects the old focus plus two remot
 1. The JSON transcript is the shared data format. Every downstream module consumes `*_transcript.json`.
 2. `meta.py` is now the core value module (was social copy). It performs conditional rendering: steps XOR summary, and context only with steps.
 3. `clipper.py` is optional and asks the user at runtime whether to export video clips.
-4. Pipeline auto-resolves dependencies: infer/clips/captions require transcribe.
+4. Pipeline auto-resolves dependencies: infer/clips require transcribe.
 5. Performance: transcription is the bottleneck. Optimizations in `transcribe.py`:
    - device auto-detect (CUDA float16 else CPU int8) via ctranslate2
    - configurable model size via `WHISPER_MODEL` env (default small)
@@ -50,17 +49,16 @@ The pivot is on branch `dev`. `main` still reflects the old focus plus two remot
 ## What changed in this pivot (for other agents)
 
 - `transcribe.py`: added performance optimizations (audio extraction, VAD, device detection, env config). Added `.m4a` to FORMATS.
-- `meta.py`: fully reworked from social-copy generator to meeting inference. New function `generar_informe`. Removed `PLATAFORMAS`/`generar_meta`.
+- `meta.py`: fully reworked from social-copy generator to meeting inference. New function `generar_informe`. Also emits `_transcript_llm.txt`. Removed `PLATAFORMAS`/`generar_meta`.
+- `captions.py`: removed entirely (viral caption presets not relevant to meetings).
 - `clipper.py`: reworked prompts from "viral moments" to "key moments" (decisions, action items). Added `extraer_momentos_clave` pipeline entry. Report renamed to `key_moments.txt`.
-- `pipeline.py`: new STEPS focused on meetings (split, transcribe, infer, clips, captions). Imports updated. Removed social platform selection. Added `infer` and `clips` steps.
+- `pipeline.py`: new STEPS focused on meetings (split, transcribe, infer, clips). Imports updated. Removed social platform selection. Added `infer` and `clips` steps.
 - `README.md`: updated to reflect meeting inference focus and performance notes.
 - `AGENTS.md`: this file.
 
 ## Known gaps / TODO for other agents
 
-- `pipeline.py` still references `PRESETS_SILENCE`/`PRESETS_CAPTIONS` only when those modules selected; silence cutter is legacy and may be removed.
-- `captions.py` presets (MrBeast/Hormozi/Podcast) are video-editing oriented; could be repurposed for training video captions.
-- `main.py` is a uv stub; not used. Could be removed.
+- `pipeline.py` still references `PRESETS_SILENCE` when silence cut is selected; silence cutter is legacy and may be removed.
 - No tests. Consider adding smoke tests for transcript parsing.
 - clipper optional clip export depends on ffmpeg and video presence.
 - Gemini rate limiting: 5s sleep between chunks; editor pass single call.

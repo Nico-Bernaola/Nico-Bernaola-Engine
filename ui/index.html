@@ -70,7 +70,6 @@
         <label class="flex items-center gap-2"><input type="checkbox" name="mod" value="transcribe" checked class="accent-[#bfa159]" /> Transcribe (Whisper)</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="mod" value="infer" checked class="accent-[#bfa159]" /> Infer (meeting summary)</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="mod" value="clips" class="accent-[#bfa159]" /> Key Moments (clipper)</label>
-        <label class="flex items-center gap-2"><input type="checkbox" name="mod" value="captions" class="accent-[#bfa159]" /> Captions (.SRT)</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="mod" value="cut" class="accent-[#bfa159]" /> Silence Cut (legacy)</label>
       </div>
 
@@ -82,19 +81,6 @@
             <option value="2" selected>2 — Talking-Head</option>
             <option value="3">3 — Short-form</option>
           </select>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Captions preset</label>
-          <select id="captionsPreset" class="w-full bg-[#1b1b1b] border border-[#2e2e2e] text-[#f0ece6] rounded px-3 py-2">
-            <option value="1">1 — MrBeast</option>
-            <option value="2" selected>2 — Hormozi</option>
-            <option value="3">3 — Podcast</option>
-            <option value="4">4 — Custom</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Captions words (custom)</label>
-          <input id="captionsWords" type="number" min="1" placeholder="3" class="w-full bg-[#1b1b1b] border border-[#2e2e2e] text-[#f0ece6] rounded px-3 py-2" />
         </div>
       </div>
 
@@ -178,8 +164,6 @@
         silence_preset: document.getE
         silence_preset: document.getElementById('silencePreset').value,
         clip_sequence: document.getElementById('clipSequence').checked,
-        captions_preset: document.getElementById('captionsPreset').value,
-        captions_words: document.getElementById('captionsWords').value || null,
         export_clips: document.getElementById('exportClips').checked,
       };
       consoleEl.textContent = '';

@@ -1,9 +1,10 @@
 import sys
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 except Exception:
     pass
+
 from pathlib import Path
 from dotenv import load_dotenv
 import json
@@ -46,6 +47,27 @@ def build_transcript(words: list) -> str:
             lines.append(f"\n[{w['start']:.1f}s]")
         lines.append(w["word"])
     return " ".join(lines)
+
+
+def build_llm_transcript(words: list) -> str:
+    NL = chr(10)
+    lines = []
+    lines.append("# Transcript (LLM-ready)")
+    lines.append("")
+    if words:
+        lines.append(f"Words: {len(words)} | Duration: {words[-1]['end']:.1f}s")
+    lines.append("")
+    block = []
+    block_start = words[0]["start"] if words else 0
+    for w in words:
+        if w["start"] - block_start >= 30 and block:
+            lines.append(f"[{block_start:.1f}s] " + " ".join(block))
+            block = []
+            block_start = w["start"]
+        block.append(w["word"])
+    if block:
+        lines.append(f"[{block_start:.1f}s] " + " ".join(block))
+    return NL.join(lines)
 
 
 def _call_gemini(prompt: str, temperature: float = 0.3, timeout: int = 120) -> str:
@@ -140,6 +162,11 @@ Rules:
 
     dest.write_text("\n".join(lines), encoding="utf-8")
     print(f"   {dest.name}", flush=True)
+
+    llm_dest = output_folder / f"{json_path.stem}_transcript_llm.txt"
+    llm_dest.write_text(build_llm_transcript(words), encoding="utf-8")
+    print(f"   {llm_dest.name}", flush=True)
+
     return dest
 
 
