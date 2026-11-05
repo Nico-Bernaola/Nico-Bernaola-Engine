@@ -39,7 +39,7 @@ video_output/
 │   └── README.txt
 ├── video_transcript.json
 ├── video_transcript_llm.txt
-├── video_meeting.md          (intro + steps/summary + context + flow diagram)
+├── video_meeting.md          (intro + steps/summary + context)
 └── key_moments.txt
 ```
 
