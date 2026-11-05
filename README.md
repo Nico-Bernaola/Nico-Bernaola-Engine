@@ -1,12 +1,12 @@
 # Nico Bernaola Engine `v0.2.0`
 
-A local, open-source automation engine that turns recorded meetings into structured onboarding/training documents. Built for teams who want to capture what was said, extract the steps, and onboard new employees without re-watching 40-minute videos.
+A local, open-source automation engine that turns recorded meetings into structured onboarding/training documents. Built for teams who want to capture what was said, extract the steps, and onboard new employees without re-watching long videos.
 
 ---
 
 ## What it does
 
-Turn a raw meeting video into a publish-ready knowledge package — transcription, meeting summary (intro + steps or summary + context), and key moments — with a single command.
+Turn a raw meeting video into a knowledge package — transcription, meeting summary (intro + steps or summary + context), key moments, and an LLM-ready transcript — with a single command.
 
 ```
 python pipeline.py
@@ -20,8 +20,8 @@ python pipeline.py
 |---|---|---|
 | `transcribe.py` | video / audio | word-level JSON with timestamps |
 | `splitter.py` | video | footage.mp4 + audio.mp3 |
-| `silence_cutter.py` | video | cleaned video or individual clips |
-| `meta.py` | JSON | meeting summary document (.md) |
+| `silence_cutter.py` | video | cleaned video or individual clips (optional, legacy) |
+| `meta.py` | JSON | meeting summary document (`.md`) + LLM-ready transcript (`.txt`) |
 | `clipper.py` | JSON | key moments report + optional clips |
 | `pipeline.py` | video / folder | everything above, organized |
 
@@ -38,8 +38,9 @@ video_output/
 │   ├── video_audio.mp3
 │   └── README.txt
 ├── video_transcript.json
-├── video_meeting.md
-├── key_moments.txt
+├── video_transcript_llm.txt
+├── video_meeting.md          (intro + steps/summary + context + flow diagram)
+└── key_moments.txt
 ```
 
 ---
@@ -61,6 +62,8 @@ video_output/
 
 ```bash
 pip install -r requirements.txt
+# or, with uv:
+uv sync
 ```
 
 ---
@@ -111,17 +114,23 @@ Model size is configurable via `WHISPER_MODEL` (tiny/base/small/medium/large-v3)
 
 ---
 
+## Output language
+
+The LLM output (meeting summary, key moments) can be generated in **English** or **Spanish**. Spanish output is normalized to ASCII: no accents, and `ñ`/`Ñ` become `ni`/`Ni`.
+
+---
+
 ## Use Cases
 
 ### Operational Data Extraction (Rappi / Quick Pass)
 
-While the engine was designed for short-form video, its core logic (video -> word-level JSON) acts as a universal business intelligence adapter. It solves a common problem: "I have a recorded meeting, but I need the exact technical data to execute a task immediately."
+While the engine was designed for short-form video, its core logic (video → word-level JSON) acts as a universal business intelligence adapter. It solves a common problem: *"I have a recorded meeting, but I need the exact technical data to execute a task immediately."*
 
 **The scenario:** A supervisor received a 40-minute training session on bulk-uploading employee shifts in Quick Pass (Rappi's HR platform). Despite attending the meeting, he couldn't resolve critical load errors. I had zero prior experience with the HR system.
 
 **How the engine solved it:**
 
-1.  `video_conference.mp4` -> `transcribe.py` -> `word-level JSON with timestamps`.
+1.  `video_conference.mp4` → `transcribe.py` → `word-level JSON with timestamps`.
 2.  Parsed the JSON to extract exact verbal instructions: date formatting (apostrophe trick), mandatory "Lote" field, and time syntax.
 3.  Applied the extracted rules directly to the Google Sheets template.
 4.  The bulk upload succeeded without trial-and-error guesswork.
