@@ -145,13 +145,27 @@ while True:
                 split(video_path, output_folder)
 
             elif key == "transcribe":
-                section("TRANSCRIBE — Generating JSON with Whisper")
+                # Reuse existing transcript if available
+                existing = None
+                for cand in [output_folder / f"{video_path.stem}_transcript.json",
+                             video_path.with_suffix(".json"),
+                             video_path.parent / f"{video_path.stem}_transcript.json"]:
+                    if cand.exists():
+                        existing = cand
+                        break
+                if existing:
+                    ans = input(chr(10) + f"Transcript found ({existing.name}). Reuse it? (y/n): ").strip().lower()
+                    if ans == "y":
+                        json_path = existing
+                        print(f"   Reusing: {json_path}", flush=True)
+                        continue
+                section("TRANSCRIBE - Generating JSON with Whisper")
                 if whisper_model is None:
                     whisper_model = cargar_modelo()
                 dest      = output_folder / f"{video_path.stem}_transcript.json"
                 json_path = transcribir(video_path, whisper_model, output_path=dest)
                 if not json_path:
-                    print("\nTranscription failed. Skipping file.", flush=True)
+                    print(chr(10) + "Transcription failed. Skipping file.", flush=True)
                     break
 
             elif key == "infer":

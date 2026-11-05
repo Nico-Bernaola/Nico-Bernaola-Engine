@@ -29,14 +29,15 @@ The pivot is on branch `dev`. `main` still reflects the old focus plus two remot
 2. `meta.py` is now the core value module (was social copy). It performs conditional rendering: steps XOR summary, and context only with steps.
 3. `clipper.py` is optional and asks the user at runtime whether to export video clips.
 4. Pipeline auto-resolves dependencies: infer/clips require transcribe.
-5. Performance: transcription is the bottleneck. Optimizations in `transcribe.py`:
+5. Transcript reuse: uploading a .json (UI) or finding an existing transcript (CLI) skips transcription. Transcripts are cached by video hash in transcript_cache/.
+6. Performance: transcription is the bottleneck. Optimizations in `transcribe.py`:
    - device auto-detect (CUDA float16 else CPU int8) via ctranslate2
    - configurable model size via `WHISPER_MODEL` env (default small)
    - configurable beam size via `WHISPER_BEAM` (default 2)
    - pre-extracts 16kHz mono WAV from video (faster decode)
    - VAD filter enabled (min_silence_duration_ms=500)
    - condition_on_previous_text=False
-6. Gemini calls use urllib (no SDK). Free tier assumed.
+7. Gemini calls use urllib (no SDK). Free tier assumed.
 
 ## Conventions
 
